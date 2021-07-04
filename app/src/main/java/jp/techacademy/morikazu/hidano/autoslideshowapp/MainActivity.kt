@@ -1,14 +1,17 @@
 package jp.techacademy.morikazu.hidano.autoslideshowapp
 
 import android.Manifest
+import android.annotation.SuppressLint
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.content.pm.PackageManager
 import android.os.Build
+import android.os.Handler
 import android.util.Log
 import android.provider.MediaStore
 import android.content.ContentUris
 import kotlinx.android.synthetic.main.activity_main.*
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
@@ -20,6 +23,10 @@ class MainActivity : AppCompatActivity() {
 
     private var index_count: Int = 0
     private var state = STATE_STAY
+
+    private var mTimer: Timer? = null
+    private var mTimerSec = 0.0
+    private var mHandler = Handler()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,26 +49,59 @@ class MainActivity : AppCompatActivity() {
         }
 
         next_button.setOnClickListener {
+            Log.d("ANDROID", "進むボタンが押された")
             state = STATE_NEXT
             index_count++
+            if (mTimer != null) {
+                mTimer!!.cancel()
+                mTimer = null
+                play_button.text = "開始"
+            }
             getContentsInfo()
-            Log.d("ANDROID", "進むボタンが押された")
         }
 
         prev_button.setOnClickListener {
+            Log.d("ANDROID", "戻るボタンが押された")
             state = STATE_PREV
             index_count--
+            if (mTimer != null) {
+                mTimer!!.cancel()
+                mTimer = null
+                play_button.text = "開始"
+            }
             getContentsInfo()
-            Log.d("ANDROID", "戻るボタンが押された")
         }
 
         play_button.setOnClickListener {
-            state = STATE_PLAY
-            getContentsInfo()
-            Log.d("ANDROID", "再生/停止ボタンが押された")
+            if (state != STATE_PLAY) {
+                Log.d("ANDROID", "再生中")
+                state = STATE_PLAY
+                if (mTimer == null) {
+                    play_button.text = "停止"
+                    mTimer = Timer()
+                    mTimer!!.schedule(object : TimerTask() {
+                        override fun run() {
+                            mTimerSec += 2.0
+                            mHandler.post {
+                                Log.d("ANDROID", "mTimerSec : " + mTimerSec)
+                                index_count++
+                                getContentsInfo()
+                            }
+                        }
+                    }, 2000, 2000)
+                }
+            } else {
+                Log.d("ANDROID", "停止中")
+                state = STATE_STAY
+                play_button.text = "開始"
+                mTimer!!.cancel()
+                mTimer = null
+                mTimerSec = 0.0
+            }
         }
     }
 
+    @SuppressLint("MissingSuperCall")
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         when (requestCode) {
             PERMISSIONS_REQUEST_CODE ->
@@ -109,6 +149,9 @@ class MainActivity : AppCompatActivity() {
                 }
                 STATE_PREV -> {
                     cursor.moveToPrevious()
+                }
+                STATE_PLAY -> {
+                    cursor.moveToNext()
                 }
             }
         }
